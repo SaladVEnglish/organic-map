@@ -2,6 +2,7 @@ import re
 from collections import defaultdict
 from fractions import Fraction
 from enum import Enum
+from typing import Any
 
 
 class molecule_type(Enum):
@@ -13,11 +14,43 @@ class molecule_type(Enum):
 
 
 class valence:
-    def __init__(self, formula, val, cnt, type: molecule_type = molecule_type.ATOM):
+    def __init__(self, formula, val: Fraction, cnt, type: molecule_type = molecule_type.ATOM):
         self.formula = formula
         self.val = val
         self.cnt = cnt
         self.type = type
+
+    def __int__(self) -> int:
+        return self.val
+
+
+class radical:
+    def __init__(self, formula, val: Fraction, atom_valence: list[valence]):
+        self.formula = formula
+        self.valence = val
+        self.atom_valence = atom_valence
+        self.type = molecule_type.RADICAL
+
+    def __repr__(self) -> str:
+        return self.formula
+
+    def __str__(self) -> str:
+        return self.formula
+
+    def __getitem__(self, key) -> valence:
+        if isinstance(key, int):
+            return (
+                self.atom_valence[key - 1]
+                if key
+                else valence(self.formula, self.valence, 1, self.type)
+            )
+        for v in self.atom_valence:
+            if v.formula == key:
+                return v
+        raise KeyError(key)
+
+    def __len__(self) -> int:
+        return len(self.atom_valence) + 1
 
 
 preset_valence_order = {
@@ -43,11 +76,14 @@ changeable_valence_order = {
 }
 
 radicals = {
-    "NO3": {
-        valence("NO3", -1, 1, molecule_type.RADICAL),
-        valence("O", -2, 3, molecule_type.RADICAL),
-        valence("N", +5, 1, molecule_type.RADICAL),
-    },
+    "NO3": radical(
+        "NO3",
+        -1,
+        [
+            valence("O", -2, 3, molecule_type.RADICAL),
+            valence("N", +5, 1, molecule_type.RADICAL),
+        ],
+    ),
 }
 
 
@@ -121,26 +157,29 @@ def count_pattern_occurrences(target_str, pattern):
 
 def parse_radical(formula):
     atom_dict = parse_chemical_formula(formula)
-    for i in radicals.keys():
-        pattern = r"(\()?%s((\))(\d*))?" % i
+    now_valence = 0
+    for i in radicals.values():
+        cur_cnt = count_pattern_occurrences(formula, i.formula)
+        if cur_cnt:
+            return i
 
 
-def simple_get_valence(formula: str, now_valence: int = 0) -> dict:
+def simple_get_valence(formula: str, now_valence: int = 0) -> dict[str,valence]:
     atom_dict = parse_chemical_formula(formula)
     atom_cnt = len(atom_dict)
-    res = dict()
+    res = dict[str,valence]()
     visit = set()
     for i in preset_valence_order.keys():
         if atom_cnt == 1:
             break
         if i in atom_dict:
-            res[i] = Fraction(preset_valence_order[i])
+            res[i] = valence(i, Fraction(preset_valence_order[i]), atom_dict[i])
             now_valence += atom_dict[i] * res[i]
             visit.add(i)
             atom_cnt -= 1
     last_atom = list(set(atom_dict.keys()) - visit)[0]
     # print(last_atom)
-    res[last_atom] = -Fraction(now_valence) / Fraction(atom_dict[last_atom])
+    res[last_atom] = valence(last_atom, -Fraction(now_valence) / Fraction(atom_dict[last_atom]), atom_dict[last_atom])
     return res
 
 
