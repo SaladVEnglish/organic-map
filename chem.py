@@ -22,6 +22,14 @@ class valence:
 
     def __int__(self) -> int:
         return self.val
+    
+    def __str__(self) -> str:
+        if self.val.denominator == 1:
+            return f"{"-" if self.val<0 else ""}{int_to_roman(abs(int(self.val)))}"
+        return str(self.val)
+    
+    def __repr__(self) -> str:
+        return f"valence({self.formula}({str(self)}) * {self.cnt})"
 
 
 class radical:
@@ -158,10 +166,20 @@ def count_pattern_occurrences(target_str, pattern):
 def parse_radical(formula):
     atom_dict = parse_chemical_formula(formula)
     now_valence = 0
+    involed_radicals = list[valence]()
     for i in radicals.values():
         cur_cnt = count_pattern_occurrences(formula, i.formula)
+        now_valence += cur_cnt * i.valence
         if cur_cnt:
-            return i
+            involed_radicals.append(valence(i.formula, i.valence, cur_cnt, molecule_type.RADICAL))
+            for j in i.atom_valence:
+                atom_dict[j.formula] -= cur_cnt * j.cnt
+                print(j.formula, j.cnt*cur_cnt)
+                if atom_dict[j.formula] <= 0:
+                    del atom_dict[j.formula]
+                    
+    return atom_dict, involed_radicals
+        
 
 
 def simple_get_valence(formula: str, now_valence: int = 0) -> dict[str,valence]:
@@ -182,6 +200,37 @@ def simple_get_valence(formula: str, now_valence: int = 0) -> dict[str,valence]:
     res[last_atom] = valence(last_atom, -Fraction(now_valence) / Fraction(atom_dict[last_atom]), atom_dict[last_atom])
     return res
 
+def int_to_roman(num):
+    """
+    将整数转换为罗马数字
+    :param num: 整数（1-3999）
+    :return: 罗马数字字符串
+    """
+    # 定义值到符号的映射（按从大到小排列）
+    val_to_sym = [
+        (1000, 'M'),
+        (900, 'CM'),
+        (500, 'D'),
+        (400, 'CD'),
+        (100, 'C'),
+        (90, 'XC'),
+        (50, 'L'),
+        (40, 'XL'),
+        (10, 'X'),
+        (9, 'IX'),
+        (5, 'V'),
+        (4, 'IV'),
+        (1, 'I')
+    ]
+    
+    roman = ''
+    for value, symbol in val_to_sym:
+        # 当 num 大于等于当前值时，重复减去并添加符号
+        while num >= value:
+            roman += symbol
+            num -= value
+    return roman
+
 
 class compound:
     def __init__(self, formula: str = "H2O"):
@@ -194,4 +243,5 @@ class compound:
 
 
 if __name__ == "__main__":
-    print(simple_get_valence(parse_chemical_formula(input())))
+    print(parse_radical(input()))
+    #print(simple_get_valence(parse_chemical_formula(input())))
