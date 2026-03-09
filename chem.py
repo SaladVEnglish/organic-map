@@ -13,6 +13,7 @@ class molecule_type(Enum):
     NEGATIVE_ION = 4
 
 
+# Just a test
 class valence:
     def __init__(
         self, formula, val: Fraction, cnt, type: molecule_type = molecule_type.ATOM
